@@ -1,0 +1,155 @@
+[project]
+name = "tensormesh"
+version = "0.1.0"
+description = "PyTorch tensor triangular mesh"
+authors = [{ name = "Monumo Ltd." }]
+requires-python = ">=3.13"
+dependencies = [
+    "torch>=2.8.0",
+    "numpy>=2.1.3",
+    "plotly>=5.20.0",
+    "frozendict>=2.4.7",
+]
+
+[dependency-groups]
+dev = [
+    { "include-group" = "test" },
+    { "include-group" = "docs" },
+    "ruff ==0.15.4",
+    "pyright[nodejs] ==1.1.408",
+    "fawltydeps ==0.19.0",
+    "taplo ==0.9.3",
+    "notebook >=7.1.0",
+    "nbqa >=1.9.1",
+    "nbstripout >=0.8.1",
+    "prek>=0.3.4",
+]
+docs = ["zensical>=0.0.26", "mkdocstrings-python", "rich>=14.0.0"]
+test = [
+    "ddt >=1.7.2",
+    "pytest >=8.4.0",
+    "pytest-cov >=6.1.1",
+    "pytest-xdist >=3.7.0",
+    "testbook >=0.4.2",
+    "timeout-decorator>=0.5.0",
+]
+torchcpu = ["torch"]
+torchcu128 = ["torch"]
+
+[tool.uv]
+python-preference = "only-managed"
+required-version = ">=0.9.21"
+conflicts = [[{ group = "torchcpu" }, { group = "torchcu128" }]]
+default-groups = ["dev", "torchcu128"]
+
+[tool.uv.sources]
+# NOTE: this allows switching between CPU & GPU builds of torch.
+#   By default we select the `torchcu128` group, which (most of the time) is what we want.
+#   If you want to run with only CPU support, which will significantly reduce the total
+#   size of dependencies to be downloaded & installed, then:
+#
+#       uv sync --group torchcpu --no-group torchcu128
+torch = [
+    { index = "pytorch-cpu", group = "torchcpu" },
+    { index = "pytorch-cu128", group = "torchcu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.ruff]
+output-format = "concise"
+lint.future-annotations = true
+lint.select = ["ALL"]
+lint.ignore = [
+    # flake8-commas
+    "COM812", # conflicts with the formatter
+
+    # flake8-fixme
+    "FIX", # fix-mes are OK
+
+    # flake8-todos
+    "TD001", # Invalid to-do tag
+    "TD002", # Missing author
+    "TD003", # Missing issue link
+
+    # pydocstyle
+    "D100", # module docstrings
+    "D101", # public class docstrings
+    "D102", # public method docstrings
+    "D103", # public function docstrings
+    "D104", # package docstrings
+    "D105", # magic method docstrings
+    "D107", # __init__ docstrings
+    "D401", # first line imperative mood
+
+    # flake8-bandit
+    "S101", # assert usage
+
+    # flake8-pytest-style
+    "PT009", # use regular assert instead of unittest methods
+    "PT027", # use pytest.raises instead of unittest assertRaisesRegex
+
+    # Pylint
+    "PLR2004", # magic value suppression
+    "PLR0913", # many keyword-only arguments
+    "PLC0414", # module import-as
+    "PLC0415", # import not at top of file (we use lazy imports for optional deps)
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+line-ending = "lf"
+
+[tool.ruff.lint.isort]
+known-first-party = ["tensormesh"]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"docs/tutorials/*" = ["T20"] # Allow print statements in notebooks
+"docs/*" = ["INP001"] # docs/ is not a package
+
+[tool.pyright] # Also controls the Pylance VSCode extension.
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+# By default pyright's analysis assumes that the current platform is the only one of
+# interest. We don't want that.
+#   https://github.com/microsoft/pyright/issues/9774#issuecomment-2619670064
+pythonPlatform = "All"
+reportMissingTypeStubs = false
+reportPrivateUsage = false # ruff SLF does it better
+reportUnknownArgumentType = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+# The following are not enabled by default in 'strict' mode, but we want them.
+#   See the table here:
+#   https://microsoft.github.io/pyright/#/configuration?id=diagnostic-settings-defaults
+reportMissingModuleSource = "error"
+reportPropertyTypeMismatch = true
+reportUninitializedInstanceVariable = true
+reportUnnecessaryTypeIgnoreComment = true
+
+[tool.coverage.report]
+exclude_also = [
+    "raise AssertionError",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]
+
+[tool.pytest.ini_options]
+addopts = ["--tb=short", "--strict-config"]
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"

@@ -1,0 +1,55 @@
+site_name: TensorMesh
+site_description: PyTorch tensors for 2D triangular meshes
+
+docs_dir: docs
+site_dir: built_docs
+use_directory_urls: false
+
+theme:
+  variant: classic
+  logo: assets/monumo-icon.svg
+  font:
+    text: Poppins
+    code: Noto Sans Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: lucide/sun
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: lucide/moon
+        name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            inherited_members: true
+            group_by_category: true
+            show_category_heading: true
+            members_order: source
+
+# The nav below is partially auto-generated. The API Reference section is
+# replaced by docs/gen_api_pages.py before every build; do not edit it here.
+nav:
+  - Home: index.md
+  - Tutorials:
+      - Getting Started: tutorials/getting_started.md
+  - API Reference: api/

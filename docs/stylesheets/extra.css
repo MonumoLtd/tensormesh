@@ -1,0 +1,14 @@
+/* Monumo brand colours */
+:root > * {
+  --md-primary-fg-color:        #71C734;
+  --md-primary-fg-color--light: #8ED456;
+  --md-primary-fg-color--dark:  #4A8A1F;
+}
+
+/* Monumo logo — top-right of the header bar */
+.md-header {
+  background-image: url('../assets/monumo-logo.svg');
+  background-repeat: no-repeat;
+  background-position: right 1.2rem center;
+  background-size: auto 24px;
+}
