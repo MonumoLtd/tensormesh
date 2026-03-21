@@ -15,10 +15,10 @@ from tensormesh.mesh import Mesh
 
 def _mesh_flatten(
     mesh: Mesh,
-) -> tuple[list[Any], tuple[list[str], list[str], list[str]]]:
-    vf_keys = sorted(mesh.vertex_features.keys())
-    cf_keys = sorted(mesh.cell_features.keys())
-    gf_keys = sorted(mesh.global_features.keys())
+) -> tuple[list[Any], tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]]:
+    vf_keys = tuple(sorted(mesh.vertex_features.keys()))
+    cf_keys = tuple(sorted(mesh.cell_features.keys()))
+    gf_keys = tuple(sorted(mesh.global_features.keys()))
 
     children = [
         mesh.xy,
@@ -32,7 +32,7 @@ def _mesh_flatten(
 
 
 def _mesh_unflatten(
-    values: Iterable[Any], aux: tuple[list[str], list[str], list[str]]
+    values: Iterable[Any], aux: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]
 ) -> Mesh:
     vals = list(values)
     vf_keys, cf_keys, gf_keys = aux

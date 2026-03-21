@@ -21,9 +21,6 @@ class FrozenDict[K, V](dict[K, V]):
         else:
             super().__init__(mapping_or_iterable)
 
-    def __hash__(self) -> int:  # type: ignore[override]
-        return hash(tuple(sorted(self.items())))
-
     # -- block all mutation -----------------------------------------------------
 
     def _raise(self) -> NoReturn:

@@ -30,7 +30,7 @@ class Mesh:
 
     Feature dicts accept any :class:`~collections.abc.Mapping` (including
     ``frozendict``) and are converted internally to a compile-friendly
-    :class:`~tensormesh.FrozenDict`.
+    :class:`~tensormesh._frozen_dict.FrozenDict`.
     """
 
     xy: Tensor
