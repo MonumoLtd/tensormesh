@@ -32,8 +32,7 @@ def _mesh_flatten(
 
 
 def _mesh_unflatten(
-    values: Iterable[Any],
-    aux: tuple[list[str], list[str], list[str]],
+    values: Iterable[Any], aux: tuple[list[str], list[str], list[str]]
 ) -> Mesh:
     vals = list(values)
     vf_keys, cf_keys, gf_keys = aux
@@ -66,8 +65,5 @@ def _mesh_unflatten(
 
 
 pytree.register_pytree_node(
-    Mesh,
-    _mesh_flatten,
-    _mesh_unflatten,
-    serialized_type_name="tensormesh.Mesh",
+    Mesh, _mesh_flatten, _mesh_unflatten, serialized_type_name="tensormesh.Mesh"
 )

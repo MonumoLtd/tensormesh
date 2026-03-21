@@ -139,9 +139,7 @@ class Mesh:
                 if k not in vertex_features
             },
             cell_features={
-                k: v
-                for k, v in self.cell_features.items()
-                if k not in cell_features
+                k: v for k, v in self.cell_features.items() if k not in cell_features
             },
             global_features={
                 k: v
@@ -311,9 +309,7 @@ def concat(meshes: Sequence[Mesh]) -> Mesh:
         vertex_features={
             k: torch.cat(v, dim=0) for k, v in all_vertex_features.items()
         },
-        cell_features={
-            k: torch.cat(v, dim=0) for k, v in all_cell_features.items()
-        },
+        cell_features={k: torch.cat(v, dim=0) for k, v in all_cell_features.items()},
         global_features={
             k: torch.cat(v, dim=0) for k, v in all_global_features.items()
         },
