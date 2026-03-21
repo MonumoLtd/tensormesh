@@ -5,12 +5,17 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import torch
-from torch import Tensor
 
 from tensormesh._frozen_dict import FrozenDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from torch import Tensor
+
+
+def _empty_features() -> Mapping[str, Tensor]:
+    return FrozenDict()
 
 
 @typing.final
@@ -22,6 +27,10 @@ class Mesh:
     * the shapes of the tensors relative to each other;
     * the bounds of the cell vertex indices;
     * the device on which all tensors reside.
+
+    Feature dicts accept any :class:`~collections.abc.Mapping` (including
+    ``frozendict``) and are converted internally to a compile-friendly
+    :class:`~tensormesh.FrozenDict`.
     """
 
     xy: Tensor
@@ -30,22 +39,21 @@ class Mesh:
     cell_indices: Tensor
     """(num_cells, 3) long tensor with the vertex indices of each triangular cell."""
 
-    vertex_features: FrozenDict[str, Tensor] = field(
-        default_factory=FrozenDict[str, Tensor]
-    )
+    vertex_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
     """Attributes defined at the mesh nodes; values of shape (num_vertices, ...)."""
 
-    cell_features: FrozenDict[str, Tensor] = field(
-        default_factory=FrozenDict[str, Tensor]
-    )
+    cell_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
     """Attributes defined at the mesh elements; values of shape (num_cells, ...)."""
 
-    global_features: FrozenDict[str, Tensor] = field(
-        default_factory=FrozenDict[str, Tensor]
-    )
+    global_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
     """Attributes defined at the mesh level; values of shape (...)."""
 
     def __post_init__(self) -> None:
+        # Convert any Mapping to FrozenDict for torch.compile compatibility.
+        for name in ("vertex_features", "cell_features", "global_features"):
+            val = getattr(self, name)
+            if not isinstance(val, FrozenDict):
+                object.__setattr__(self, name, FrozenDict(val))
         _validate_shapes(self)
         _validate_index_bounds(self)
         _validate_device(self)
@@ -90,31 +98,28 @@ class Mesh:
                 return x.to(device=device, dtype=float_dtype)
             return x.to(device=device)
 
-        vertices = FrozenDict({k: convert(v) for k, v in self.vertex_features.items()})
-        cells = FrozenDict({k: convert(v) for k, v in self.cell_features.items()})
-        glob = FrozenDict({k: convert(v) for k, v in self.global_features.items()})
         return Mesh(
             xy=convert(self.xy),
             cell_indices=convert(self.cell_indices),
-            vertex_features=vertices,
-            cell_features=cells,
-            global_features=glob,
+            vertex_features={k: convert(v) for k, v in self.vertex_features.items()},
+            cell_features={k: convert(v) for k, v in self.cell_features.items()},
+            global_features={k: convert(v) for k, v in self.global_features.items()},
         )
 
     def with_features(
         self,
         *,
-        vertex_features: Mapping[str, torch.Tensor] = FrozenDict(),
-        cell_features: Mapping[str, torch.Tensor] = FrozenDict(),
-        global_features: Mapping[str, torch.Tensor] = FrozenDict(),
+        vertex_features: Mapping[str, torch.Tensor] | None = None,
+        cell_features: Mapping[str, torch.Tensor] | None = None,
+        global_features: Mapping[str, torch.Tensor] | None = None,
     ) -> Mesh:
         """Create a new `Mesh` with additional features."""
         return Mesh(
             xy=self.xy,
             cell_indices=self.cell_indices,
-            vertex_features=self.vertex_features | FrozenDict(vertex_features),
-            cell_features=self.cell_features | FrozenDict(cell_features),
-            global_features=self.global_features | FrozenDict(global_features),
+            vertex_features={**self.vertex_features, **(vertex_features or {})},
+            cell_features={**self.cell_features, **(cell_features or {})},
+            global_features={**self.global_features, **(global_features or {})},
         )
 
     def delete_features(
@@ -125,21 +130,24 @@ class Mesh:
         global_features: Sequence[str] = (),
     ) -> Mesh:
         """Create a new `Mesh` without the specified features."""
-        new_vertex_features = FrozenDict(
-            {k: v for k, v in self.vertex_features.items() if k not in vertex_features}
-        )
-        new_cell_features = FrozenDict(
-            {k: v for k, v in self.cell_features.items() if k not in cell_features}
-        )
-        new_global_features = FrozenDict(
-            {k: v for k, v in self.global_features.items() if k not in global_features}
-        )
         return Mesh(
             xy=self.xy,
             cell_indices=self.cell_indices,
-            vertex_features=new_vertex_features,
-            cell_features=new_cell_features,
-            global_features=new_global_features,
+            vertex_features={
+                k: v
+                for k, v in self.vertex_features.items()
+                if k not in vertex_features
+            },
+            cell_features={
+                k: v
+                for k, v in self.cell_features.items()
+                if k not in cell_features
+            },
+            global_features={
+                k: v
+                for k, v in self.global_features.items()
+                if k not in global_features
+            },
         )
 
     def rename_features(
@@ -154,21 +162,18 @@ class Mesh:
         cell_mapping = cell_mapping or {}
         global_mapping = global_mapping or {}
 
-        new_vertex_features = FrozenDict(
-            {vertex_mapping.get(k, k): v for k, v in self.vertex_features.items()}
-        )
-        new_cell_features = FrozenDict(
-            {cell_mapping.get(k, k): v for k, v in self.cell_features.items()}
-        )
-        new_global_features = FrozenDict(
-            {global_mapping.get(k, k): v for k, v in self.global_features.items()}
-        )
         return Mesh(
             xy=self.xy,
             cell_indices=self.cell_indices,
-            vertex_features=new_vertex_features,
-            cell_features=new_cell_features,
-            global_features=new_global_features,
+            vertex_features={
+                vertex_mapping.get(k, k): v for k, v in self.vertex_features.items()
+            },
+            cell_features={
+                cell_mapping.get(k, k): v for k, v in self.cell_features.items()
+            },
+            global_features={
+                global_mapping.get(k, k): v for k, v in self.global_features.items()
+            },
         )
 
     def clone(self) -> Mesh:
@@ -176,15 +181,9 @@ class Mesh:
         return Mesh(
             xy=self.xy.clone(),
             cell_indices=self.cell_indices.clone(),
-            vertex_features=FrozenDict(
-                {k: v.clone() for k, v in self.vertex_features.items()}
-            ),
-            cell_features=FrozenDict(
-                {k: v.clone() for k, v in self.cell_features.items()}
-            ),
-            global_features=FrozenDict(
-                {k: v.clone() for k, v in self.global_features.items()}
-            ),
+            vertex_features={k: v.clone() for k, v in self.vertex_features.items()},
+            cell_features={k: v.clone() for k, v in self.cell_features.items()},
+            global_features={k: v.clone() for k, v in self.global_features.items()},
         )
 
 
@@ -280,9 +279,9 @@ def concat(meshes: Sequence[Mesh]) -> Mesh:
     global_names = list(meshes[0].global_features)
 
     all_xy, all_cell_indices = [], []
-    all_vertex_features = {key: [] for key in vertex_names}
-    all_cell_features = {key: [] for key in cell_names}
-    all_global_features = {key: [] for key in global_names}
+    all_vertex_features: dict[str, list[Tensor]] = {key: [] for key in vertex_names}
+    all_cell_features: dict[str, list[Tensor]] = {key: [] for key in cell_names}
+    all_global_features: dict[str, list[Tensor]] = {key: [] for key in global_names}
     for mesh in meshes:
         all_xy.append(mesh.xy)
         all_cell_indices.append(mesh.cell_indices + num_vertices)
@@ -309,15 +308,15 @@ def concat(meshes: Sequence[Mesh]) -> Mesh:
     return Mesh(
         xy=torch.cat(all_xy, dim=0),
         cell_indices=torch.cat(all_cell_indices, dim=0),
-        vertex_features=FrozenDict(
-            {k: torch.cat(v, dim=0) for k, v in all_vertex_features.items()}
-        ),
-        cell_features=FrozenDict(
-            {k: torch.cat(v, dim=0) for k, v in all_cell_features.items()}
-        ),
-        global_features=FrozenDict(
-            {k: torch.cat(v, dim=0) for k, v in all_global_features.items()}
-        ),
+        vertex_features={
+            k: torch.cat(v, dim=0) for k, v in all_vertex_features.items()
+        },
+        cell_features={
+            k: torch.cat(v, dim=0) for k, v in all_cell_features.items()
+        },
+        global_features={
+            k: torch.cat(v, dim=0) for k, v in all_global_features.items()
+        },
     )
 
 
@@ -385,7 +384,7 @@ def align_schema(
     return Mesh(
         xy=mesh.xy,
         cell_indices=mesh.cell_indices,
-        vertex_features=FrozenDict(vertex_features),
-        cell_features=FrozenDict(cell_features),
-        global_features=FrozenDict(global_features),
+        vertex_features=vertex_features,
+        cell_features=cell_features,
+        global_features=global_features,
     )

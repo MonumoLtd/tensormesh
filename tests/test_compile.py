@@ -3,24 +3,25 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import torch
+from frozendict import frozendict
 from torch import nn
 
-from tensormesh import FrozenDict, Mesh
+from tensormesh import Mesh
 
 if TYPE_CHECKING:
     from torch import Tensor
 
 
 def _make_mesh() -> Mesh:
-    """Simple 2-triangle, 4-vertex mesh."""
+    """Simple 2-triangle, 4-vertex mesh built with frozendict (backward compat)."""
     xy = torch.tensor([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
     cell_indices = torch.tensor([[0, 1, 2], [0, 2, 3]], dtype=torch.long)
     return Mesh(
         xy=xy,
         cell_indices=cell_indices,
-        vertex_features=FrozenDict({"vf": torch.arange(4, dtype=torch.float32)}),
-        cell_features=FrozenDict({"cf": torch.ones(2)}),
-        global_features=FrozenDict({"gf": torch.tensor(42.0)}),
+        vertex_features=frozendict({"vf": torch.arange(4, dtype=torch.float32)}),
+        cell_features=frozendict({"cf": torch.ones(2)}),
+        global_features=frozendict({"gf": torch.tensor(42.0)}),
     )
 
 

@@ -1,6 +1,7 @@
 import torch
+from frozendict import frozendict
 
-from tensormesh import FrozenDict, Mesh
+from tensormesh import Mesh
 
 
 def _make_mesh(dtype: torch.dtype = torch.float64) -> Mesh:
@@ -10,9 +11,9 @@ def _make_mesh(dtype: torch.dtype = torch.float64) -> Mesh:
     return Mesh(
         xy=xy,
         cell_indices=cell_indices,
-        vertex_features=FrozenDict({"vf": torch.arange(4, dtype=dtype)}),
-        cell_features=FrozenDict({"cf": torch.ones(2, dtype=dtype)}),
-        global_features=FrozenDict({"gf": torch.tensor(42.0, dtype=dtype)}),
+        vertex_features=frozendict({"vf": torch.arange(4, dtype=dtype)}),
+        cell_features=frozendict({"cf": torch.ones(2, dtype=dtype)}),
+        global_features=frozendict({"gf": torch.tensor(42.0, dtype=dtype)}),
     )
 
 
