@@ -2,9 +2,8 @@ from typing import Any
 
 import plotly.graph_objects as go
 import torch
-from frozendict import frozendict
 
-from tensormesh import Mesh
+from tensormesh import FrozenDict, Mesh
 from tensormesh.plots import (
     default_color_map,
     make_pretty,
@@ -26,7 +25,7 @@ def _simple_mesh() -> Mesh:
     return Mesh(
         xy=xy,
         cell_indices=cell_indices,
-        vertex_features=frozendict(
+        vertex_features=FrozenDict(
             {
                 "scalar_v": torch.tensor([0.0, 1.0, 2.0, 3.0]),
                 "vec2_v": torch.tensor(
@@ -35,7 +34,7 @@ def _simple_mesh() -> Mesh:
                 "bool_v": torch.tensor([True, False, True, False]),
             }
         ),
-        cell_features=frozendict(
+        cell_features=FrozenDict(
             {
                 "scalar_c": torch.tensor([1.0, 2.0]),
                 "vec2_c": torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
