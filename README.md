@@ -15,9 +15,9 @@ have the following attributes
 |---|---|---|---|
 | `xy` | Tensor (float) | (num_vertex, 2) | Vertex coordinates |
 | `cell_indices` | Tensor (int64) | (num_cells, 3) | vertex indices for each element |
-| `vertex_features` | frozendict[str, Tensor] | (num_vertex, ...) | Per-vertex features |
-| `cell_features` | frozendict[str, Tensor]| (num_cells, ...) | Per-cell features |
-| `global_features` | frozendict[str, Tensor] | (...) | Mesh-level attributes |
+| `vertex_features` | dict[str, Tensor] | (num_vertex, ...) | Per-vertex features |
+| `cell_features` | dict[str, Tensor]| (num_cells, ...) | Per-cell features |
+| `global_features` | dict[str, Tensor] | (...) | Mesh-level attributes |
 
 **Device and dtype conversion** — `mesh.to(device, dtype)` moves all tensors;
 integer and boolean tensors preserve their dtype.

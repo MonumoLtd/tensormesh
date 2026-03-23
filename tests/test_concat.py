@@ -1,7 +1,6 @@
 import unittest
 
 import torch
-from frozendict import frozendict
 
 from tensormesh import Mesh
 from tensormesh.mesh import concat
@@ -20,13 +19,9 @@ def _make_triangle(
             [[0.0 + offset, 0.0], [1.0 + offset, 0.0], [0.5 + offset, 1.0]], dtype=dtype
         ),
         cell_indices=torch.tensor([[0, 1, 2]], dtype=torch.long),
-        vertex_features=frozendict(
-            {k: torch.ones(3, dtype=dtype) for k in vertex_cols}
-        ),
-        cell_features=frozendict({k: torch.ones(1, dtype=dtype) for k in cell_cols}),
-        global_features=frozendict(
-            {k: torch.ones(1, dtype=dtype) for k in global_cols}
-        ),
+        vertex_features={k: torch.ones(3, dtype=dtype) for k in vertex_cols},
+        cell_features={k: torch.ones(1, dtype=dtype) for k in cell_cols},
+        global_features={k: torch.ones(1, dtype=dtype) for k in global_cols},
     )
 
 
