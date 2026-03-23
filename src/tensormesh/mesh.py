@@ -15,16 +15,7 @@ if TYPE_CHECKING:
 @typing.final
 @dataclass(kw_only=True, frozen=True, eq=False, init=False)
 class Mesh:
-    """Tensor representation of a 2D triangular mesh.
-
-    The constructor enforces consistency on
-    * the shapes of the tensors relative to each other;
-    * the bounds of the cell vertex indices;
-    * the device on which all tensors reside.
-
-    Feature dicts accept any :class:`~collections.abc.Mapping`, which are then
-    converted internally to a dictionary.
-    """
+    """Tensor representation of a 2D triangular mesh."""
 
     xy: Tensor
     """(num_vertices, 2) float tensor with the mesh vertex coordinates."""
@@ -51,6 +42,14 @@ class Mesh:
         global_features: Mapping[str, Tensor] | None = None,
     ) -> None:
         """Initialize a Mesh object.
+
+        The constructor enforces consistency on
+        * the shapes of the tensors relative to each other;
+        * the bounds of the cell vertex indices;
+        * the device on which all tensors reside.
+
+        Feature dicts accept any :class:`~collections.abc.Mapping`, which are then
+        converted internally to a dictionary.
 
         Args:
             xy: (num_vertices, 2) float tensor with the mesh vertex coordinates.
