@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import typing
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch
-
-from tensormesh._frozen_dict import FrozenDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -14,12 +12,8 @@ if TYPE_CHECKING:
     from torch import Tensor
 
 
-def _empty_features() -> Mapping[str, Tensor]:
-    return FrozenDict()
-
-
 @typing.final
-@dataclass(kw_only=True, frozen=True, eq=False)
+@dataclass(kw_only=True, frozen=True, eq=False, init=False)
 class Mesh:
     """Tensor representation of a 2D triangular mesh.
 
@@ -28,9 +22,8 @@ class Mesh:
     * the bounds of the cell vertex indices;
     * the device on which all tensors reside.
 
-    Feature dicts accept any :class:`~collections.abc.Mapping` (including
-    ``frozendict``) and are converted internally to a compile-friendly
-    :class:`~tensormesh._frozen_dict.FrozenDict`.
+    Feature dicts accept any :class:`~collections.abc.Mapping`, which are then
+    converted internally to a dictionary.
     """
 
     xy: Tensor
@@ -39,21 +32,43 @@ class Mesh:
     cell_indices: Tensor
     """(num_cells, 3) long tensor with the vertex indices of each triangular cell."""
 
-    vertex_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
+    vertex_features: dict[str, Tensor]
     """Attributes defined at the mesh nodes; values of shape (num_vertices, ...)."""
 
-    cell_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
+    cell_features: dict[str, Tensor]
     """Attributes defined at the mesh elements; values of shape (num_cells, ...)."""
 
-    global_features: Mapping[str, Tensor] = field(default_factory=_empty_features)
+    global_features: dict[str, Tensor]
     """Attributes defined at the mesh level; values of shape (...)."""
 
-    def __post_init__(self) -> None:
-        # Convert any Mapping to FrozenDict for torch.compile compatibility.
-        for name in ("vertex_features", "cell_features", "global_features"):
-            val = getattr(self, name)
-            if not isinstance(val, FrozenDict):
-                object.__setattr__(self, name, FrozenDict(val))
+    def __init__(
+        self,
+        *,
+        xy: Tensor,
+        cell_indices: Tensor,
+        vertex_features: Mapping[str, Tensor] | None = None,
+        cell_features: Mapping[str, Tensor] | None = None,
+        global_features: Mapping[str, Tensor] | None = None,
+    ) -> None:
+        """Initialize a Mesh object.
+
+        Args:
+            xy: (num_vertices, 2) float tensor with the mesh vertex coordinates.
+            cell_indices: (num_cells, 3) long tensor with the vertex indices of each
+                triangular cell.
+            vertex_features: attributes defined at the mesh nodes; values of
+                shape (num_vertices, ...).
+            cell_features: attributes defined at the mesh elements; values of
+                shape (num_cells, ...).
+            global_features: attributes defined at the mesh level; values of
+                shape (...).
+        """
+        object.__setattr__(self, "xy", xy)
+        object.__setattr__(self, "cell_indices", cell_indices)
+        object.__setattr__(self, "vertex_features", {**(vertex_features or {})})
+        object.__setattr__(self, "cell_features", {**(cell_features or {})})
+        object.__setattr__(self, "global_features", {**(global_features or {})})
+
         _validate_shapes(self)
         _validate_index_bounds(self)
         _validate_device(self)

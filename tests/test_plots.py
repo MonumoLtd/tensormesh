@@ -2,7 +2,6 @@ from typing import Any
 
 import plotly.graph_objects as go
 import torch
-from frozendict import frozendict
 
 from tensormesh import Mesh
 from tensormesh.plots import (
@@ -26,23 +25,17 @@ def _simple_mesh() -> Mesh:
     return Mesh(
         xy=xy,
         cell_indices=cell_indices,
-        vertex_features=frozendict(
-            {
-                "scalar_v": torch.tensor([0.0, 1.0, 2.0, 3.0]),
-                "vec2_v": torch.tensor(
-                    [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.5, 0.5]]
-                ),
-                "bool_v": torch.tensor([True, False, True, False]),
-            }
-        ),
-        cell_features=frozendict(
-            {
-                "scalar_c": torch.tensor([1.0, 2.0]),
-                "vec2_c": torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
-                "flag_a": torch.tensor([[True], [False]]),
-                "flag_b": torch.tensor([[False], [True]]),
-            }
-        ),
+        vertex_features={
+            "scalar_v": torch.tensor([0.0, 1.0, 2.0, 3.0]),
+            "vec2_v": torch.tensor([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.5, 0.5]]),
+            "bool_v": torch.tensor([True, False, True, False]),
+        },
+        cell_features={
+            "scalar_c": torch.tensor([1.0, 2.0]),
+            "vec2_c": torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
+            "flag_a": torch.tensor([[True], [False]]),
+            "flag_b": torch.tensor([[False], [True]]),
+        },
     )
 
 

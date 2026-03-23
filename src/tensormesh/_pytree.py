@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 
 import torch.utils._pytree as pytree
 
-from tensormesh._frozen_dict import FrozenDict
 from tensormesh.mesh import Mesh
 
 
@@ -41,19 +40,14 @@ def _mesh_unflatten(
     cell_indices = vals[1]
     offset = 2
 
-    vf = FrozenDict(
-        dict(zip(vf_keys, vals[offset : offset + len(vf_keys)], strict=True))
-    )
+    vf = dict(zip(vf_keys, vals[offset : offset + len(vf_keys)], strict=True))
+
     offset += len(vf_keys)
 
-    cf = FrozenDict(
-        dict(zip(cf_keys, vals[offset : offset + len(cf_keys)], strict=True))
-    )
+    cf = dict(zip(cf_keys, vals[offset : offset + len(cf_keys)], strict=True))
     offset += len(cf_keys)
 
-    gf = FrozenDict(
-        dict(zip(gf_keys, vals[offset : offset + len(gf_keys)], strict=True))
-    )
+    gf = dict(zip(gf_keys, vals[offset : offset + len(gf_keys)], strict=True))
 
     return Mesh(
         xy=xy,

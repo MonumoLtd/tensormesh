@@ -14,9 +14,9 @@ have the following attributes
 |---|---|---|---|
 | `xy` | Tensor | (num_vertex, 2) | Vertex coordinates |
 | `cell_indices` | Tensor | (num_cells, 3) | vertex indices for each element |
-| `vertex_features` | frozendict[str, Tensor] | (num_vertex, ...) | Per-vertex features |
-| `cell_features` | frozendict[str, Tensor]| (num_cells, ...) | Per-cell features |
-| `global_features` | frozendict[str, Tensor] | (...) | Mesh-level attributes |
+| `vertex_features` | dict[str, Tensor] | (num_vertex, ...) | Per-vertex features |
+| `cell_features` | dict[str, Tensor]| (num_cells, ...) | Per-cell features |
+| `global_features` | dict[str, Tensor] | (...) | Mesh-level attributes |
 
 
 ## Capabilities
