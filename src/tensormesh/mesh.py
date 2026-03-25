@@ -40,6 +40,7 @@ class Mesh:
         vertex_features: Mapping[str, Tensor] | None = None,
         cell_features: Mapping[str, Tensor] | None = None,
         global_features: Mapping[str, Tensor] | None = None,
+        _skip_validation: bool = False,
     ) -> None:
         """Initialize a Mesh object.
 
@@ -61,6 +62,9 @@ class Mesh:
                 shape (num_cells, ...).
             global_features: attributes defined at the mesh level; values of
                 shape (...).
+            _skip_validation: internal flag used by pytree unflatten to skip
+                validation when reconstructing from already-validated tensors.
+                Users should never set this.
         """
         object.__setattr__(self, "xy", xy)
         object.__setattr__(self, "cell_indices", cell_indices)
@@ -68,9 +72,10 @@ class Mesh:
         object.__setattr__(self, "cell_features", {**(cell_features or {})})
         object.__setattr__(self, "global_features", {**(global_features or {})})
 
-        _validate_shapes(self)
-        _validate_index_bounds(self)
-        _validate_device(self)
+        if not _skip_validation:
+            _validate_shapes(self)
+            _validate_index_bounds(self)
+            _validate_device(self)
 
     @property
     def num_vertices(self) -> int:

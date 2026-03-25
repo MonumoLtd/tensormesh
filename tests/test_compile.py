@@ -45,3 +45,48 @@ class TestCompile:
         compiled_out = compiled(mesh)
 
         assert torch.allclose(eager_out, compiled_out)
+
+
+class TestExport:
+    def test_export_simple_model(self) -> None:
+        model = SimpleModel()
+        mesh = _make_mesh()
+
+        ep = torch.export.export(model, (mesh,))
+        exported_out = ep.module()(mesh)
+        eager_out = model(mesh)
+
+        assert torch.allclose(exported_out, eager_out)
+
+    def test_export_mesh_without_features(self) -> None:
+        class BareModel(nn.Module):
+            def forward(self, mesh: Mesh) -> Tensor:
+                return mesh.xy.sum()
+
+        xy = torch.tensor([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+        cell_indices = torch.tensor([[0, 1, 2]], dtype=torch.long)
+        mesh = Mesh(xy=xy, cell_indices=cell_indices)
+        model = BareModel()
+
+        ep = torch.export.export(model, (mesh,))
+        exported_out = ep.module()(mesh)
+
+        assert torch.allclose(exported_out, model(mesh))
+
+    def test_export_accesses_all_feature_types(self) -> None:
+        class AllFeaturesModel(nn.Module):
+            def forward(self, mesh: Mesh) -> Tensor:
+                return (
+                    mesh.xy.sum()
+                    + mesh.vertex_features["vf"].sum()
+                    + mesh.cell_features["cf"].sum()
+                    + mesh.global_features["gf"]
+                )
+
+        mesh = _make_mesh()
+        model = AllFeaturesModel()
+
+        ep = torch.export.export(model, (mesh,))
+        exported_out = ep.module()(mesh)
+
+        assert torch.allclose(exported_out, model(mesh))
