@@ -94,4 +94,6 @@ pytree.register_pytree_node(
     _mesh_unflatten,
     serialized_type_name="tensormesh.Mesh",
     flatten_with_keys_fn=_mesh_flatten_with_keys,
+    to_dumpable_context=lambda ctx: [list(t) for t in ctx],  # pyright: ignore[reportUnknownLambdaType]
+    from_dumpable_context=lambda ctx: tuple(tuple(t) for t in ctx),  # pyright: ignore[reportUnknownLambdaType]
 )
