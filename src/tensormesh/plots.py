@@ -505,6 +505,27 @@ def plot_vector_field(
         make_pretty(fig)
         fig.update_layout(showlegend=True)
 
+    index_label = "vertex index" if face_type == "vertex" else "cell index"
+    norms = np.linalg.norm(vectors, axis=1)
+    customdata = np.column_stack([np.arange(positions.shape[0]), norms])
+    fig.add_trace(
+        go.Scatter(
+            x=positions[:, 0],
+            y=positions[:, 1],
+            mode="markers",
+            marker={"size": 1, "opacity": 0},
+            customdata=customdata,
+            hovertemplate=(
+                "x: %{x:.2f}<br>y: %{y:.2f}"
+                f"<br>{index_label}: %{{customdata[0]:.0f}}"
+                "<br>vec. norm: %{customdata[1]:.3g}"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+            hoverlabel={"bgcolor": "white"},
+        )
+    )
+
     if show_cells:
         fig_outline = plot_mesh(mesh)
         fig_outline.add_traces(fig.data)
