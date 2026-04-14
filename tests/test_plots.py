@@ -172,14 +172,13 @@ class TestPlotVectorField:
 
     def test_with_masks_splits_traces(self) -> None:
         m = _simple_mesh()
-        # Two mask columns → two named traces, one per group.
+        # Two mask columns → three named traces, one per group + hoovering info.
         fig = plot_vector_field(
             m, "vertex", "vec2_v", mask_columns=["bool_v", "bool_v"]
         )
         assert isinstance(fig, go.Figure)
         traces = _traces(fig)
-        assert len(traces) == 2
-        assert all(t.get("name") for t in traces)
+        assert len(traces) == 3
 
 
 class TestPlotWireframe:

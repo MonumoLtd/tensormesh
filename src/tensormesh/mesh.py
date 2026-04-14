@@ -364,7 +364,7 @@ def concat(meshes: Sequence[Mesh]) -> Mesh:
         },
         cell_features={k: torch.cat(v, dim=0) for k, v in all_cell_features.items()},
         global_features={
-            k: torch.cat(v, dim=0) for k, v in all_global_features.items()
+            k: torch.stack(v) for k, v in all_global_features.items()
         },
     )
 

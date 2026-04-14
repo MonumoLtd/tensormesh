@@ -100,7 +100,7 @@ class TestConcat(unittest.TestCase):
         m2 = _make_triangle(offset=2.0, global_cols=("g1",))
         merged = concat([m1, m2])
         self.assertIn("g1", merged.global_features)
-        # Both global tensors of shape (1,) get concatenated → (2,)
+        # Both global tensors of shape (1,) get stacked → (2, 1)
         self.assertEqual(merged.global_features["g1"].shape[0], 2)
 
     def test_feature_values_concatenated(self) -> None:
