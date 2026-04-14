@@ -119,6 +119,46 @@ class TestDeleteFeatures:
         assert "vf" in m.vertex_features
 
 
+class TestSelectFeatures:
+    def test_keeps_requested_vertex_features(self) -> None:
+        m = _make_mesh()
+        m2 = m.with_features(
+            vertex_features={"vf2": torch.arange(4, dtype=torch.float64)}
+        )
+        m3 = m2.select_features(vertex_features=["vf"])
+        assert "vf" in m3.vertex_features
+        assert "vf2" not in m3.vertex_features
+
+    def test_none_keeps_all(self) -> None:
+        m = _make_mesh()
+        m2 = m.select_features(vertex_features=None)
+        assert m2.vertex_features.keys() == m.vertex_features.keys()
+
+    def test_empty_keeps_none(self) -> None:
+        m = _make_mesh()
+        m2 = m.select_features(vertex_features=[])
+        assert len(m2.vertex_features) == 0
+
+    def test_missing_name_raises(self) -> None:
+        import pytest
+
+        m = _make_mesh()
+        with pytest.raises(ValueError, match="not_here"):
+            m.select_features(vertex_features=["not_here"])
+
+    def test_cell_and_global(self) -> None:
+        m = _make_mesh()
+        m2 = m.select_features(cell_features=["cf"], global_features=[])
+        assert "cf" in m2.cell_features
+        assert len(m2.global_features) == 0
+
+    def test_geometry_preserved(self) -> None:
+        m = _make_mesh()
+        m2 = m.select_features(vertex_features=["vf"])
+        assert m2.xy is m.xy
+        assert m2.cell_indices is m.cell_indices
+
+
 class TestClone:
     def test_values_equal(self) -> None:
         m = _make_mesh()

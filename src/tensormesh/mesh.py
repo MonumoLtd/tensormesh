@@ -49,7 +49,7 @@ class Mesh:
         * the bounds of the cell vertex indices;
         * the device on which all tensors reside.
 
-        Feature dicts accept any :class:`~collections.abc.Mapping`, which are then
+        Feature dicts accept any `collections.abc.Mapping`, which are then
         converted internally to a dictionary.
 
         Args:
@@ -109,7 +109,7 @@ class Mesh:
                 leaves the dtype unchanged.
 
         Returns:
-            A new :class:`Mesh` with all tensors on the requested device/dtype.
+            A new `Mesh` with all tensors on the requested device/dtype.
         """
 
         def convert(x: Tensor) -> Tensor:
@@ -165,6 +165,40 @@ class Mesh:
                 for k, v in self.global_features.items()
                 if k not in global_features
             },
+        )
+
+    def select_features(
+        self,
+        *,
+        vertex_features: Sequence[str] | None = None,
+        cell_features: Sequence[str] | None = None,
+        global_features: Sequence[str] | None = None,
+    ) -> Mesh:
+        """Return a new `Mesh` keeping only the named features.
+
+        `None` means *keep all*; an empty sequence means *keep none*.
+
+        Raises:
+            ValueError: if any requested name is not present.
+        """
+
+        def _select(
+            available: dict[str, Tensor], requested: Sequence[str] | None
+        ) -> dict[str, Tensor]:
+            if requested is None:
+                return available
+            missing = set(requested) - set(available)
+            if missing:
+                msg = f"Features not found: {sorted(missing)}"
+                raise ValueError(msg)
+            return {k: available[k] for k in requested}
+
+        return Mesh(
+            xy=self.xy,
+            cell_indices=self.cell_indices,
+            vertex_features=_select(self.vertex_features, vertex_features),
+            cell_features=_select(self.cell_features, cell_features),
+            global_features=_select(self.global_features, global_features),
         )
 
     def rename_features(
