@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 import torch
 
 from tensormesh import Mesh
@@ -98,6 +99,74 @@ class TestGetitem:
         batch = MeshBatch.from_meshes([_make_triangle()])
         with pytest.raises(IndexError):
             batch[1]
+
+
+def _make_strip(n_cells: int, tag: float) -> Mesh:
+    """Strip of *n_cells* triangles; *tag* makes the mesh identifiable."""
+    n_v = n_cells + 2
+    xs = torch.arange(n_v, dtype=torch.float64)
+    cells = torch.stack(
+        [torch.arange(n_cells), torch.arange(n_cells) + 1, torch.arange(n_cells) + 2],
+        dim=1,
+    )
+    return Mesh(
+        xy=torch.stack([xs, (xs % 2) + tag], dim=1),
+        cell_indices=cells,
+        vertex_features={"vf": xs + tag},
+        cell_features={"cf": torch.full((n_cells,), tag, dtype=torch.float64)},
+        global_features={"gf": torch.tensor([tag], dtype=torch.float64)},
+    )
+
+
+def _assert_mesh_equal(a: Mesh, b: Mesh) -> None:
+    assert torch.equal(a.xy, b.xy)
+    assert torch.equal(a.cell_indices, b.cell_indices)
+    for name in ("vertex_features", "cell_features", "global_features"):
+        fa, fb = getattr(a, name), getattr(b, name)
+        assert fa.keys() == fb.keys()
+        for k in fa:
+            assert torch.equal(fa[k], fb[k]), (name, k)
+
+
+def _uneven_meshes() -> list[Mesh]:
+    return [_make_strip(n, float(i)) for i, n in enumerate([3, 1, 5, 2])]
+
+
+class TestRoundTrip:
+    def test_from_meshes(self) -> None:
+        meshes = _uneven_meshes()
+        batch = MeshBatch.from_meshes(meshes)
+        for i, m in enumerate(meshes):
+            _assert_mesh_equal(batch[i], m)
+            _assert_mesh_equal(batch[i - len(meshes)], m)
+
+    @pytest.mark.parametrize("mmap", [False, True])
+    def test_save_load(self, tmp_path: Path, *, mmap: bool) -> None:
+        meshes = _uneven_meshes()
+        path = tmp_path / "batch.pt"
+        MeshBatch.from_meshes(meshes).save(path)
+        loaded = MeshBatch.load(path, mmap=mmap)
+        assert len(loaded) == len(meshes)
+        for i, m in enumerate(meshes):
+            _assert_mesh_equal(loaded[i], m)
+
+    def test_int32_cell_indices_returned_as_int64(self) -> None:
+        meshes = _uneven_meshes()
+        batch = MeshBatch.from_meshes(meshes)
+        narrow = MeshBatch(
+            meshes=Mesh(
+                xy=batch.meshes.xy,
+                cell_indices=batch.meshes.cell_indices.to(torch.int32),
+                vertex_features=batch.meshes.vertex_features,
+                cell_features=batch.meshes.cell_features,
+                global_features=batch.meshes.global_features,
+            ),
+            vertex_ptr=batch.vertex_ptr,
+            cell_ptr=batch.cell_ptr,
+        )
+        for i, m in enumerate(meshes):
+            assert narrow[i].cell_indices.dtype == torch.int64
+            _assert_mesh_equal(narrow[i], m)
 
 
 class TestTo:

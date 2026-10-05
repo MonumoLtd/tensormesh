@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from dataclasses import asdict, dataclass
+from itertools import accumulate
 from typing import TYPE_CHECKING
 
 import torch
@@ -132,7 +134,8 @@ class MeshShardedDataset(Dataset[MeshDatum]):
     """Sharded variant of `MeshDataset`.
 
     Keeps one shard memory-mapped at a time and swaps shards transparently
-    when the requested index falls outside the current shard.
+    when the requested index falls outside the current shard. Shards may
+    hold different numbers of meshes.
     """
 
     def __init__(
@@ -141,8 +144,18 @@ class MeshShardedDataset(Dataset[MeshDatum]):
         x_schema: FeatureSchema,
         y_schema: FeatureSchema,
         *,
-        assert_equal_shard_sizes: bool = True,
+        shard_sizes: Sequence[int] | None = None,
     ) -> None:
+        """Initialise the dataset.
+
+        Args:
+            shard_paths: paths to `MeshBatch` files, in dataset order.
+            x_schema: features making up the input side of each datum.
+            y_schema: features making up the target side of each datum.
+            shard_sizes: number of meshes in each shard. If `None`, each shard
+                is memory-mapped once to read its length. Each size is checked
+                again when its shard is loaded.
+        """
         if not shard_paths:
             msg = "shard_paths must not be empty"
             raise ValueError(msg)
@@ -150,65 +163,84 @@ class MeshShardedDataset(Dataset[MeshDatum]):
         self._shard_paths = list(shard_paths)
         self._x_schema = x_schema
         self._y_schema = y_schema
-        self._assert_equal_shard_sizes = assert_equal_shard_sizes
 
-        # Load the first shard
-        self._current_shard_idx = 0
-        self._current_dataset = MeshDataset.from_file(
-            self._shard_paths[0], x_schema, y_schema
-        )
-        self._shard_size = len(self._current_dataset)
-
-        # Compute total length
-        if assert_equal_shard_sizes:
-            self._length = self._shard_size * len(self._shard_paths)
-        else:
-            self._length = sum(
-                len(MeshBatch.load(p, mmap=True)) for p in self._shard_paths
+        if shard_sizes is None:
+            shard_sizes = [len(MeshBatch.load(p, mmap=True)) for p in self._shard_paths]
+        self._shard_sizes = _validate_shard_sizes(shard_sizes)
+        if len(self._shard_sizes) != len(self._shard_paths):
+            msg = (
+                f"Got {len(self._shard_sizes)} shard sizes "
+                f"for {len(self._shard_paths)} shard paths"
             )
+            raise ValueError(msg)
+        self._offsets = _cumulative_offsets(self._shard_sizes)
+
+        # Load the first shard, which also validates the schemas
+        self._current_shard_idx = 0
+        self._current_dataset = self._load_shard(0)
 
     @property
     def num_shards(self) -> int:
         return len(self._shard_paths)
 
     @property
-    def shard_size(self) -> int:
-        """Number of items in each shard (based on the first shard)."""
-        return self._shard_size
+    def shard_sizes(self) -> tuple[int, ...]:
+        """Number of items in each shard."""
+        return self._shard_sizes
+
+    @property
+    def shard_offsets(self) -> tuple[int, ...]:
+        """(num_shards + 1,) cumulative shard sizes, starting at 0."""
+        return self._offsets
 
     def __len__(self) -> int:
-        return self._length
+        return self._offsets[-1]
 
     def __getitem__(self, idx: int) -> MeshDatum:
-        shard_idx = idx // self._shard_size
-        local_idx = idx - shard_idx * self._shard_size
+        if idx < 0:
+            idx += len(self)
+        if not 0 <= idx < len(self):
+            msg = f"index {idx} out of range for dataset of {len(self)} items"
+            raise IndexError(msg)
+
+        shard_idx = bisect_right(self._offsets, idx) - 1
+        local_idx = idx - self._offsets[shard_idx]
 
         if shard_idx != self._current_shard_idx:
-            self._swap_shard(shard_idx)
+            self._current_dataset = self._load_shard(shard_idx)
+            self._current_shard_idx = shard_idx
 
         return self._current_dataset[local_idx]
 
-    def _swap_shard(self, shard_idx: int) -> None:
-        """Replace the current shard with shard *shard_idx*."""
-        if not 0 <= shard_idx < len(self._shard_paths):
-            n = len(self._shard_paths) - 1
-            msg = f"Shard index {shard_idx} out of range (0..{n})"
-            raise IndexError(msg)
-
-        self._current_dataset = MeshDataset.from_file(
+    def _load_shard(self, shard_idx: int) -> MeshDataset:
+        """Load shard *shard_idx* and check it has the expected size."""
+        dataset = MeshDataset.from_file(
             self._shard_paths[shard_idx], self._x_schema, self._y_schema
         )
-        self._current_shard_idx = shard_idx
-
-        if (
-            self._assert_equal_shard_sizes
-            and len(self._current_dataset) != self._shard_size
-        ):
+        if len(dataset) != self._shard_sizes[shard_idx]:
             msg = (
-                f"Shard {shard_idx} has {len(self._current_dataset)} items, "
-                f"expected {self._shard_size}"
+                f"Shard {shard_idx} ({self._shard_paths[shard_idx]}) has "
+                f"{len(dataset)} items, expected {self._shard_sizes[shard_idx]}"
             )
             raise ValueError(msg)
+        return dataset
+
+
+def _validate_shard_sizes(shard_sizes: Sequence[int]) -> tuple[int, ...]:
+    """Check that *shard_sizes* is non-empty and strictly positive."""
+    sizes = tuple(int(s) for s in shard_sizes)
+    if not sizes:
+        msg = "shard_sizes must not be empty"
+        raise ValueError(msg)
+    if any(s <= 0 for s in sizes):
+        msg = f"shard_sizes must all be positive, got {list(sizes)}"
+        raise ValueError(msg)
+    return sizes
+
+
+def _cumulative_offsets(sizes: Sequence[int]) -> tuple[int, ...]:
+    """Return `(0, s0, s0 + s1, ...)`."""
+    return (0, *accumulate(sizes))
 
 
 class ShardShuffleSampler(Sampler[int]):
@@ -216,34 +248,57 @@ class ShardShuffleSampler(Sampler[int]):
 
     Designed for `MeshShardedDataset`: each iteration visits every
     index exactly once, but indices from different shards are never
-    interleaved, avoiding expensive shard swaps.
+    interleaved, avoiding expensive shard swaps. Shards may have
+    different sizes.
 
     Call `set_epoch` before each epoch for a different permutation.
     """
 
     def __init__(
         self,
+        shard_sizes: Sequence[int],
+        seed: int = 0,
+        *,
+        shuffle_shards: bool = True,
+        shuffle_within_shard: bool = True,
+    ) -> None:
+        self.shard_sizes = _validate_shard_sizes(shard_sizes)
+        self.shard_offsets = _cumulative_offsets(self.shard_sizes)
+        self.length = self.shard_offsets[-1]
+        self.num_shards = len(self.shard_sizes)
+        self.seed = seed
+        self.shuffle_shards = shuffle_shards
+        self.shuffle_within_shard = shuffle_within_shard
+        self.epoch = 0
+
+    @classmethod
+    def uniform(
+        cls,
         length: int,
         shard_size: int,
         seed: int = 0,
         *,
         shuffle_shards: bool = True,
         shuffle_within_shard: bool = True,
-    ) -> None:
+    ) -> ShardShuffleSampler:
+        """Construct a sampler for *length* items in shards of *shard_size*.
+
+        The last shard holds the remainder if *shard_size* does not divide
+        *length*.
+        """
         if length <= 0:
             msg = "length must be positive"
             raise ValueError(msg)
         if shard_size <= 0:
             msg = "shard_size must be positive"
             raise ValueError(msg)
-
-        self.length = length
-        self.shard_size = shard_size
-        self.num_shards = -(length // -shard_size)  # ceiling division
-        self.seed = seed
-        self.shuffle_shards = shuffle_shards
-        self.shuffle_within_shard = shuffle_within_shard
-        self.epoch = 0
+        sizes = [min(shard_size, length - s) for s in range(0, length, shard_size)]
+        return cls(
+            sizes,
+            seed=seed,
+            shuffle_shards=shuffle_shards,
+            shuffle_within_shard=shuffle_within_shard,
+        )
 
     @classmethod
     def from_dataset(
@@ -256,8 +311,7 @@ class ShardShuffleSampler(Sampler[int]):
     ) -> ShardShuffleSampler:
         """Construct a sampler from a `MeshShardedDataset`."""
         return cls(
-            length=len(dataset),
-            shard_size=dataset.shard_size,
+            dataset.shard_sizes,
             seed=seed,
             shuffle_shards=shuffle_shards,
             shuffle_within_shard=shuffle_within_shard,
@@ -279,14 +333,14 @@ class ShardShuffleSampler(Sampler[int]):
         else:
             shard_order = torch.arange(self.num_shards)
 
-        for shard_idx in shard_order:
-            shard_start = int(shard_idx) * self.shard_size
-            shard_len = min(self.shard_size, self.length - shard_start)
+        for shard_idx in shard_order.tolist():
+            shard_start = self.shard_offsets[shard_idx]
+            shard_len = self.shard_sizes[shard_idx]
 
             if self.shuffle_within_shard:
                 local_perm = torch.randperm(shard_len, generator=g)
             else:
                 local_perm = torch.arange(shard_len)
 
-            for local_idx in local_perm:
-                yield shard_start + int(local_idx)
+            for local_idx in local_perm.tolist():
+                yield shard_start + local_idx

@@ -114,7 +114,8 @@ class MeshBatch:
 
         return Mesh(
             xy=self.meshes.xy[start_v:end_v],
-            cell_indices=self.meshes.cell_indices[start_c:end_c] - start_v,
+            # Stored indices are global into `meshes.xy`; rebase to this mesh.
+            cell_indices=(self.meshes.cell_indices[start_c:end_c] - start_v).long(),
             vertex_features={
                 k: v[start_v:end_v] for k, v in self.meshes.vertex_features.items()
             },
@@ -158,7 +159,8 @@ class MeshBatch:
         Expects a file created by `save`. If *mmap* is `True`, the
         tensors will be memory-mapped (only supported for CPU tensors).
         """
-        data = torch.load(path, weights_only=False, mmap=mmap)
+        with torch.serialization.safe_globals([Mesh]):
+            data = torch.load(path, weights_only=True, mmap=mmap)
 
         if not isinstance(data, dict) or data.get("format") != "tensormesh.MeshBatch":
             msg = f"Unrecognised file format in {path}"
